@@ -4,7 +4,8 @@ import numpy as np
 import cv2
 from matplotlib import pyplot as plt
 import math
-
+import os
+import time
 
 # calculate the size of image
 def getImgSize(image):
@@ -55,44 +56,64 @@ def getBackgroundColor(srcImage):
     return img_hsv[image_size[0]/2, 1]
 
 def getNextPosition(img, actor_side):
-    offset = 5
+    offset = 10
     pos1 = [(pos_actor[0][0] + pos_actor[1][0])/2, pos_actor[1][1]]
+    delta = 5
     result = None
     if(actor_side == 'left'):
         image_right = image_size[1]-1
         pos2 = [image_right, math.ceil(-(image_right - pos1[0])/1.732 + pos1[1]) + offset]
+        print "pos2 ", pos2
         for i in range(0, (image_right-pos1[0])):
-            pixel = img[int(pos2[1] + i)][int(math.floor(pos2[0] - 1.732*i))]
-            if(deltaOfUint(pixel[2], bg_hsv[2]) > 20):
+            y = int(pos2[1] + i)
+            x = int(math.floor(pos2[0] - 1.732*i))
+            pixel = img[y][x-1]
+            print "pixel ", x, y, pixel
+            if(deltaOfUint(pixel, bg_hsv)):
                 result = math.floor(pos2[0] - 1.732*i), pos2[1] + i
                 print result
                 break
-            pixel = img[int(pos2[1] + i)][int(math.ceil(pos2[0] - 1.732 * i))]
-            if(deltaOfUint(pixel[2], bg_hsv[2]) > 20):
+            pixel = img[y][x]
+            if(deltaOfUint(pixel, bg_hsv)):
                 result = math.ceil(pos2[0] - 1.732*i), pos2[1] + i
                 print result
                 break
-        result = result[0] - 25, result[1]
+        result = result[0] - 20, result[1]
 
     if(actor_side == 'right'):
         image_left = 0
         pos2 = [image_left, math.ceil(-pos1[0]/1.732 + pos1[1]) + offset]
         for i in range(0, pos1[0]):
             pixel = img[int(pos2[1] + i)][int(math.floor(1.732*i))]
-            if(deltaOfUint(pixel[2], bg_hsv[2]) > 20):
+            if(deltaOfUint(pixel, bg_hsv)):
                 result = math.floor(1.732*i), pos2[1] + i
                 print result
                 break
             pixel = img[int(pos2[1] + i)][int(math.ceil(1.732 * i))]
-            if(deltaOfUint(pixel[2], bg_hsv[2]) > 20):
+            if(deltaOfUint(pixel, bg_hsv)):
                 result = math.ceil(1.732*i), pos2[1] + i
                 print result
                 break
-        result = result[0] + 25, result[1]
+        result = result[0] + 20, result[1]
     return result
 
 def deltaOfUint(val1, val2):
-    return abs(int(val1) - int(val2))
+    # print "color delta ", abs(int(val1) - int(val2))
+    if(abs(int(val1[0]) - int(val2[0])) > 10 or abs(int(val1[1]) - int(val2[1])) > 10 or abs(int(val1[2]) - int(val2[2])) > 10):
+        return True
+    else:
+        return False
+
+def pull_screenshot():
+    os.system('adb shell screencap -p /sdcard/autojump.png')
+    os.system('adb pull /sdcard/autojump.png .')
+
+def jump(distance):
+    press_time = distance * 3000
+    press_time = int(press_time)
+    cmd = 'adb shell input swipe 320 410 320 410 ' + str(press_time)
+    print(cmd)
+    os.system(cmd)
 
 image_size = None
 bg_hsv = None
@@ -101,28 +122,36 @@ img_hsv = None
 # Load an color image in grayscale
 # img = cv2.imread('IMG_1629.PNG',0)
 # print 'test'
-images = ['IMG_1629.PNG', 'IMG_1630.PNG', 'IMG_1634.PNG']
-# images = ['IMG_1629.PNG']
-for path in images:
-    img = cv2.imread(path, 1)
-    # cv2.imshow('image', img)
-    image_size = getImgSize(img)
-    print "image size is ", image_size
+# images = ['IMG_1629.PNG', 'IMG_1630.PNG', 'IMG_1634.PNG']
+while(True):
+    pull_screenshot()
+    images = ['autojump.png']
+    for path in images:
+        img = cv2.imread(path, 1)
+        # cv2.imshow('image', img)
+        image_size = getImgSize(img)
+        print "image size is ", image_size
 
-    pos_actor = findActor(img)
-    print pos_actor
+        pos_actor = findActor(img)
+        print pos_actor
 
-    bg_hsv = getBackgroundColor(img);
-    print "bg color in hsv is ", bg_hsv
+        bg_hsv = getBackgroundColor(img);
+        print "bg color in hsv is ", bg_hsv
 
-    if(pos_actor[0][0] < image_size[1]/2):
-        print "actor is in left side"
-        nextPos = getNextPosition(img_hsv, 'left')
-        print "scale ",(nextPos[0] - pos_actor[0][0])/image_size[0]
-    else:
-        print "actor is in right side"
-        nextPos = getNextPosition(img_hsv, 'right')
-        print "scale ", (pos_actor[0][0] - nextPos[0])/image_size[0]
+        if(pos_actor[0][0] < image_size[1]/2):
+            print "actor is in left side"
+            nextPos = getNextPosition(img_hsv, 'left')
+            scale = (nextPos[0] - pos_actor[0][0])/image_size[0];
+            print "scale ",scale
+            jump(scale)
+        else:
+            print "actor is in right side"
+            nextPos = getNextPosition(img_hsv, 'right')
+            scale = (pos_actor[0][0] - nextPos[0])/image_size[0]
+            print "scale ", scale
+            jump(scale)
+
+        time.sleep(1)
 
 
 # images = [img, thresh1]
