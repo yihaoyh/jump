@@ -55,8 +55,12 @@ def getBackgroundColor(srcImage):
     # 取图片中间左边的像素作为背景色
     return img_hsv[image_size[0]/2, 1]
 
+# 计算下一个跳跃的目标点
+# 如果actor在左边，则从actor原点处到到图片最右边做一条直线，
+# 设交点为pos2，则再以pos2为起点，向actor方向读取像素，如果
+# 读到和背景色不一样的点，则认为找到了下一个跳跃目标的物体。
 def getNextPosition(img, actor_side):
-    offset = 10
+    offset = 20
     pos1 = [(pos_actor[0][0] + pos_actor[1][0])/2, pos_actor[1][1]]
     delta = 5
     result = None
@@ -69,12 +73,12 @@ def getNextPosition(img, actor_side):
             x = int(math.floor(pos2[0] - 1.732*i))
             pixel = img[y][x-1]
             print "pixel ", x, y, pixel
-            if(deltaOfUint(pixel, bg_hsv)):
+            if(isColorDifferent(pixel, bg_hsv)):
                 result = math.floor(pos2[0] - 1.732*i), pos2[1] + i
                 print result
                 break
             pixel = img[y][x]
-            if(deltaOfUint(pixel, bg_hsv)):
+            if(isColorDifferent(pixel, bg_hsv)):
                 result = math.ceil(pos2[0] - 1.732*i), pos2[1] + i
                 print result
                 break
@@ -83,21 +87,22 @@ def getNextPosition(img, actor_side):
     if(actor_side == 'right'):
         image_left = 0
         pos2 = [image_left, math.ceil(-pos1[0]/1.732 + pos1[1]) + offset]
+        print "pos2 ", pos2
         for i in range(0, pos1[0]):
             pixel = img[int(pos2[1] + i)][int(math.floor(1.732*i))]
-            if(deltaOfUint(pixel, bg_hsv)):
+            if(isColorDifferent(pixel, bg_hsv)):
                 result = math.floor(1.732*i), pos2[1] + i
                 print result
                 break
             pixel = img[int(pos2[1] + i)][int(math.ceil(1.732 * i))]
-            if(deltaOfUint(pixel, bg_hsv)):
+            if(isColorDifferent(pixel, bg_hsv)):
                 result = math.ceil(1.732*i), pos2[1] + i
                 print result
                 break
         result = result[0] + 20, result[1]
     return result
 
-def deltaOfUint(val1, val2):
+def isColorDifferent(val1, val2):
     # print "color delta ", abs(int(val1) - int(val2))
     if(abs(int(val1[0]) - int(val2[0])) > 10 or abs(int(val1[1]) - int(val2[1])) > 10 or abs(int(val1[2]) - int(val2[2])) > 10):
         return True
@@ -124,8 +129,9 @@ img_hsv = None
 # print 'test'
 # images = ['IMG_1629.PNG', 'IMG_1630.PNG', 'IMG_1634.PNG']
 while(True):
-    pull_screenshot()
-    images = ['autojump.png']
+    # pull_screenshot()
+    # images = ['autojump.png']
+    images = ['fail3.png']
     for path in images:
         img = cv2.imread(path, 1)
         # cv2.imshow('image', img)
@@ -141,17 +147,22 @@ while(True):
         if(pos_actor[0][0] < image_size[1]/2):
             print "actor is in left side"
             nextPos = getNextPosition(img_hsv, 'left')
+            print "next pos ", nextPos
             scale = (nextPos[0] - pos_actor[0][0])/image_size[0];
             print "scale ",scale
             jump(scale)
         else:
             print "actor is in right side"
             nextPos = getNextPosition(img_hsv, 'right')
+            print "next pos ", nextPos
             scale = (pos_actor[0][0] - nextPos[0])/image_size[0]
             print "scale ", scale
             jump(scale)
 
         time.sleep(1)
+
+cv2.waitKey(0)
+cv2.destroyAllWindows()
 
 
 # images = [img, thresh1]
@@ -190,8 +201,7 @@ while(True):
 
 
 # cv2.imshow('image', closed)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
+
 
 # def processCircel():
 # (x,y),radius = cv2.minEnclosingCircle(contours[0])
