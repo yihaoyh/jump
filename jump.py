@@ -6,6 +6,8 @@ from matplotlib import pyplot as plt
 import math
 import os
 import time
+# 斜45度投影宽高比
+SCALE_XY = 3 ** 0.5
 
 # calculate the size of image
 def getImgSize(image):
@@ -61,45 +63,16 @@ def getBackgroundColor(srcImage):
 # 读到和背景色不一样的点，则认为找到了下一个跳跃目标的物体。
 def getNextPosition(img, actor_side):
     offset = 20
-    pos1 = [(pos_actor[0][0] + pos_actor[1][0])/2, pos_actor[1][1]]
     delta = 5
     result = None
+    pos1 = [(pos_actor[0][0] + pos_actor[1][0]) / 2, pos_actor[1][1]]
     if(actor_side == 'left'):
-        image_right = image_size[1]-1
-        pos2 = [image_right, math.ceil(-(image_right - pos1[0])/1.732 + pos1[1]) + offset]
-        print "pos2 ", pos2
-        for i in range(0, (image_right-pos1[0])):
-            y = int(pos2[1] + i)
-            x = int(math.floor(pos2[0] - 1.732*i))
-            pixel = img[y][x-1]
-            print "pixel ", x, y, pixel
-            if(isColorDifferent(pixel, bg_hsv)):
-                result = math.floor(pos2[0] - 1.732*i), pos2[1] + i
-                print result
-                break
-            pixel = img[y][x]
-            if(isColorDifferent(pixel, bg_hsv)):
-                result = math.ceil(pos2[0] - 1.732*i), pos2[1] + i
-                print result
-                break
-        result = result[0] - 20, result[1]
+        result = find_right_border(img, pos1)
+        # result = result[0] - 60, result[1]
 
     if(actor_side == 'right'):
-        image_left = 0
-        pos2 = [image_left, math.ceil(-pos1[0]/1.732 + pos1[1]) + offset]
-        print "pos2 ", pos2
-        for i in range(0, pos1[0]):
-            pixel = img[int(pos2[1] + i)][int(math.floor(1.732*i))]
-            if(isColorDifferent(pixel, bg_hsv)):
-                result = math.floor(1.732*i), pos2[1] + i
-                print result
-                break
-            pixel = img[int(pos2[1] + i)][int(math.ceil(1.732 * i))]
-            if(isColorDifferent(pixel, bg_hsv)):
-                result = math.ceil(1.732*i), pos2[1] + i
-                print result
-                break
-        result = result[0] + 20, result[1]
+        result = find_left_border(img, pos1)
+        # result = result[0] + 60, result[1]
     return result
 
 def isColorDifferent(val1, val2):
@@ -120,6 +93,66 @@ def jump(distance):
     print(cmd)
     os.system(cmd)
 
+def find_right_border(img, begin_pos):
+    result = None
+    offset = 40
+    image_right = image_size[1] - 1
+    pos2 = [image_right, math.ceil(-(image_right - begin_pos[0]) / SCALE_XY + begin_pos[1]) + offset]
+    print "pos2 ", pos2
+    for i in range(0, (image_right - begin_pos[0])):
+        y = int(pos2[1] + i)
+        x = int(math.floor(pos2[0] - SCALE_XY * i))
+        pixel = img[y][x - 1]
+        print "pixel ", x, y, pixel
+        if (isColorDifferent(pixel, bg_hsv)):
+            result = math.floor(pos2[0] - SCALE_XY * i), pos2[1] + i
+            print result
+            break
+        pixel = img[y][x]
+        if (isColorDifferent(pixel, bg_hsv)):
+            result = math.ceil(pos2[0] - SCALE_XY * i), pos2[1] + i
+            print result
+            break
+    return result
+
+def find_left_border(img, begin_pos):
+    result = None
+    offset = 40
+    image_left = 0
+    pos2 = [image_left, math.ceil(-begin_pos[0] / SCALE_XY + begin_pos[1]) + offset]
+    print "pos2 ", pos2
+    for i in range(0, begin_pos[0]):
+        pixel = img[int(pos2[1] + i)][int(math.floor(SCALE_XY * i))]
+        if (isColorDifferent(pixel, bg_hsv)):
+            result = int(math.floor(SCALE_XY * i)), pos2[1] + i
+            print result
+            break
+        pixel = img[int(pos2[1] + i)][int(math.ceil(SCALE_XY * i))]
+        if (isColorDifferent(pixel, bg_hsv)):
+            result = int(math.ceil(SCALE_XY * i)), pos2[1] + i
+            print result
+            break
+    return result
+
+# 从内部寻找边界点
+def find_border_from_inner(img, begin_pos, orientation):
+    foot_length = image_size[0]/2
+    result = None
+    for i in range(0, foot_length, 1):
+        if(orientation == 'left'):
+            X = int(begin_pos[0] - i * SCALE_XY)
+            Y = int(begin_pos[1] - i)
+            if(not isColorDifferent(img[Y][X], bg_hsv)):
+                result = [X, Y]
+                break
+        elif(orientation == 'right'):
+            X = int(begin_pos[0] + i * SCALE_XY)
+            Y = int(begin_pos[1] - i)
+            if(not isColorDifferent(img[Y][X], bg_hsv)):
+                result = [X, Y]
+                break
+    return result
+
 image_size = None
 bg_hsv = None
 pos_actor = None
@@ -129,9 +162,9 @@ img_hsv = None
 # print 'test'
 # images = ['IMG_1629.PNG', 'IMG_1630.PNG', 'IMG_1634.PNG']
 while(True):
-    # pull_screenshot()
-    # images = ['autojump.png']
-    images = ['fail3.png']
+    pull_screenshot()
+    images = ['autojump.png']
+    # images = ['fail3.png']
     for path in images:
         img = cv2.imread(path, 1)
         # cv2.imshow('image', img)
@@ -143,23 +176,44 @@ while(True):
 
         bg_hsv = getBackgroundColor(img);
         print "bg color in hsv is ", bg_hsv
-
+        nextPos = None
+        scale = None
         if(pos_actor[0][0] < image_size[1]/2):
             print "actor is in left side"
-            nextPos = getNextPosition(img_hsv, 'left')
-            print "next pos ", nextPos
-            scale = (nextPos[0] - pos_actor[0][0])/image_size[0];
-            print "scale ",scale
-            jump(scale)
+            begin = getNextPosition(img_hsv, 'left')
+            print "next begin ", begin
+            # 向左边探测中点
+            for i in range(10, image_size[1]/2):
+                x = int(begin[0] - i * SCALE_XY)
+                y = begin[1] + i
+                border = find_border_from_inner(img_hsv, [x, y], "left")
+                print "sub ", x * 2 - begin[0] - border[0]
+                if(math.fabs(x * 2 - begin[0] - border[0]) < 4):
+                    nextPos = [x, y]
+                    scale = (nextPos[0] - pos_actor[0][0]) / float(image_size[0]);
+                    break;
         else:
             print "actor is in right side"
-            nextPos = getNextPosition(img_hsv, 'right')
-            print "next pos ", nextPos
-            scale = (pos_actor[0][0] - nextPos[0])/image_size[0]
-            print "scale ", scale
-            jump(scale)
-
-        time.sleep(1)
+            begin = getNextPosition(img_hsv, 'right')
+            print "next begin ", begin
+            # 向右边边探测中点
+            for i in range(10, image_size[1]/2):
+                x = int(begin[0] + i * SCALE_XY)
+                y = begin[1] + i
+                border = find_border_from_inner(img_hsv, [x, y], "right")
+                print "sub ", x * 2 - begin[0] - border[0]
+                if(math.fabs(x * 2 - begin[0] - border[0]) < 4):
+                    nextPos = [x, y]
+                    scale = (pos_actor[0][0] - nextPos[0]) / float(image_size[0])
+                    break;
+        print "scale ", scale
+        jump(scale)
+        if(False):
+            cv2.rectangle(img, (int(nextPos[0]), int(nextPos[1])), (int(nextPos[0] + 5), int(nextPos[1] + 5)), 255, 2)
+            plt.subplot(122), plt.imshow(img, cmap='gray')
+            plt.title('Detected Point'), plt.xticks([]), plt.yticks([])
+            plt.show()
+        time.sleep(3)
 
 cv2.waitKey(0)
 cv2.destroyAllWindows()
