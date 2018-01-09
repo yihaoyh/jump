@@ -35,6 +35,9 @@ def findActor(srcImage):
             top_left = min_loc
         else:
             top_left = max_loc
+        # 模板匹配有误差，偏左10个像素
+        top_left = (top_left[0] + 8, top_left[1])
+
         bottom_right = (top_left[0] + w, top_left[1] + h)
         print "actor position ", top_left, bottom_right;
         cv2.rectangle(img, top_left, bottom_right, 255, 2)
@@ -55,7 +58,7 @@ def getBackgroundColor(srcImage):
     global img_hsv
     img_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
     # 取图片中间左边的像素作为背景色
-    return img_hsv[image_size[0]/2, 1]
+    return img_hsv[image_size[0]/4, 1]
 
 # 计算下一个跳跃的目标点
 # 如果actor在左边，则从actor原点处到到图片最右边做一条直线，
@@ -95,7 +98,7 @@ def jump(distance):
 
 def find_right_border(img, begin_pos):
     result = None
-    offsetY = 45
+    offsetY = 46
     image_right = image_size[1] - 1
     pos2 = [image_right, math.ceil(-(image_right - begin_pos[0] - 10) / SCALE_XY + begin_pos[1]) + offsetY]
     print "pos2 ", pos2
@@ -116,7 +119,7 @@ def find_right_border(img, begin_pos):
 
 def find_left_border(img, begin_pos):
     result = None
-    offset = 38
+    offset = 46
     image_left = 0
     pos2 = [image_left, math.ceil(-begin_pos[0] / SCALE_XY + begin_pos[1]) + offset]
     print "pos2 ", pos2
@@ -184,12 +187,12 @@ while(True):
             begin = getNextPosition(img_hsv, 'left')
             print "next begin ", begin
             # 向左边探测中点
-            for i in range(10, image_size[1]/2):
+            for i in range(5, image_size[1]/2):
                 x = int(begin[0] - i * SCALE_XY)
                 y = begin[1] + i
                 border = find_border_from_inner(img_hsv, [x, y], "left")
                 print "sub ", x * 2 - begin[0] - border[0]
-                if(math.fabs(x * 2 - begin[0] - border[0]) < 4):
+                if(math.fabs(x * 2 - begin[0] - border[0]) < 3):
                     nextPos = [x, y]
                     scale = (nextPos[0] - pos_actor[0][0]) / float(image_size[0]);
                     break;
@@ -198,12 +201,12 @@ while(True):
             begin = getNextPosition(img_hsv, 'right')
             print "next begin ", begin
             # 向右边边探测中点
-            for i in range(10, image_size[1]/2):
+            for i in range(5, image_size[1]/2):
                 x = int(begin[0] + i * SCALE_XY)
                 y = begin[1] + i
                 border = find_border_from_inner(img_hsv, [x, y], "right")
                 print "sub ", x * 2 - begin[0] - border[0]
-                if(math.fabs(x * 2 - begin[0] - border[0]) < 4):
+                if(math.fabs(x * 2 - begin[0] - border[0]) < 3):
                     nextPos = [x, y]
                     scale = (pos_actor[0][0] - nextPos[0]) / float(image_size[0])
                     break;
