@@ -87,7 +87,7 @@ def pull_screenshot():
     os.system('adb pull /sdcard/autojump.png .')
 
 def jump(distance):
-    press_time = distance * 3000
+    press_time = distance * 3050
     press_time = int(press_time)
     cmd = 'adb shell input swipe 320 410 320 410 ' + str(press_time)
     print(cmd)
@@ -95,15 +95,14 @@ def jump(distance):
 
 def find_right_border(img, begin_pos):
     result = None
-    offset = 40
+    offsetY = 45
     image_right = image_size[1] - 1
-    pos2 = [image_right, math.ceil(-(image_right - begin_pos[0]) / SCALE_XY + begin_pos[1]) + offset]
+    pos2 = [image_right, math.ceil(-(image_right - begin_pos[0] - 10) / SCALE_XY + begin_pos[1]) + offsetY]
     print "pos2 ", pos2
     for i in range(0, (image_right - begin_pos[0])):
         y = int(pos2[1] + i)
         x = int(math.floor(pos2[0] - SCALE_XY * i))
         pixel = img[y][x - 1]
-        print "pixel ", x, y, pixel
         if (isColorDifferent(pixel, bg_hsv)):
             result = math.floor(pos2[0] - SCALE_XY * i), pos2[1] + i
             print result
@@ -117,7 +116,7 @@ def find_right_border(img, begin_pos):
 
 def find_left_border(img, begin_pos):
     result = None
-    offset = 40
+    offset = 38
     image_left = 0
     pos2 = [image_left, math.ceil(-begin_pos[0] / SCALE_XY + begin_pos[1]) + offset]
     print "pos2 ", pos2
@@ -161,6 +160,7 @@ img_hsv = None
 # img = cv2.imread('IMG_1629.PNG',0)
 # print 'test'
 # images = ['IMG_1629.PNG', 'IMG_1630.PNG', 'IMG_1634.PNG']
+num = 0;
 while(True):
     pull_screenshot()
     images = ['autojump.png']
@@ -178,6 +178,7 @@ while(True):
         print "bg color in hsv is ", bg_hsv
         nextPos = None
         scale = None
+        begin = None
         if(pos_actor[0][0] < image_size[1]/2):
             print "actor is in left side"
             begin = getNextPosition(img_hsv, 'left')
@@ -207,12 +208,22 @@ while(True):
                     scale = (pos_actor[0][0] - nextPos[0]) / float(image_size[0])
                     break;
         print "scale ", scale
+        log = img.copy()
+
+        cv2.rectangle(log, pos_actor[0], pos_actor[1], 255, 2)
+        cv2.circle(log, (int(begin[0]), int(begin[1])), 5, 255, 2)
+        cv2.circle(log, (int(nextPos[0]), int(nextPos[1])), 5, 255, 2)
+        cv2.imwrite("logs/" + str(num) + ".png", log);
+
         jump(scale)
         if(False):
             cv2.rectangle(img, (int(nextPos[0]), int(nextPos[1])), (int(nextPos[0] + 5), int(nextPos[1] + 5)), 255, 2)
             plt.subplot(122), plt.imshow(img, cmap='gray')
             plt.title('Detected Point'), plt.xticks([]), plt.yticks([])
             plt.show()
+
+
+        num += 1
         time.sleep(3)
 
 cv2.waitKey(0)
